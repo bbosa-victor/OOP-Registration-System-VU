@@ -1,9 +1,10 @@
-
 package group.studentregistrationform2;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.sql.*; // For Access Database connection
+import java.time.YearMonth; // For leap year logic
 
 public class StudentRegistrationForm2 extends JFrame {
     // Declare components
@@ -14,61 +15,52 @@ public class StudentRegistrationForm2 extends JFrame {
     private ButtonGroup genderGroup;
     private JComboBox<String> deptBox;
     private JTextArea outputArea;
-
     private JButton submitBtn, cancelBtn;
 
     // Auto ID counter
     private static int idCounter = 1;
 
-    // Constructor 
     public StudentRegistrationForm2() {
         setTitle("Student Registration Form");
-        setSize(700, 600);
+        setSize(700, 750);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
         // Main panel
         JPanel formPanel = new JPanel();
-        formPanel.setLayout(new GridLayout(14, 2, 10, 5));
-        add(formPanel);
+        formPanel.setLayout(new GridLayout(15, 2, 10, 5));
+        add(new JScrollPane(formPanel));
 
-        // First Name
-
+        // Text Fields
         formPanel.add(new JLabel("First Name:"));
         firstNameField = new JTextField();
         formPanel.add(firstNameField);
 
-        // Last Name
         formPanel.add(new JLabel("Last Name:"));
         lastNameField = new JTextField();
         formPanel.add(lastNameField);
 
-        // Email
         formPanel.add(new JLabel("Email Address:"));
         emailField = new JTextField();
         formPanel.add(emailField);
 
-        // Confirm Email
         formPanel.add(new JLabel("Confirm Email Address:"));
         confirmEmailField = new JTextField();
-
         formPanel.add(confirmEmailField);
 
-        // Password
         formPanel.add(new JLabel("Password:"));
         passwordField = new JPasswordField();
         formPanel.add(passwordField);
 
-        // Confirm Password
         formPanel.add(new JLabel("Confirm Password:"));
         confirmPasswordField = new JPasswordField();
         formPanel.add(confirmPasswordField);
 
-        // Date of Birth
+        // --- Date of Birth Section (Fixed Initialization Order) ---
         formPanel.add(new JLabel("Select Year:"));
         int currentYear = java.time.LocalDate.now().getYear();
         DefaultComboBoxModel<String> yearModel = new DefaultComboBoxModel<>();
-        for (int y = currentYear; y >= 1960; y--) {   // adjust start year as needed
+        for (int y = currentYear; y >= 1960; y--) {
             yearModel.addElement(String.valueOf(y));
         }
         yearBox = new JComboBox<>(yearModel);
@@ -81,15 +73,30 @@ public class StudentRegistrationForm2 extends JFrame {
         formPanel.add(monthBox);
 
         formPanel.add(new JLabel("Select Day:"));
-        DefaultComboBoxModel<String> dayModel = new DefaultComboBoxModel<>();
-        for (int d = 1; d <= 31; d++) {
-            dayModel.addElement(String.valueOf(d));
-        }
-        dayBox = new JComboBox<>(dayModel);
+        dayBox = new JComboBox<>(); // Initialize empty first
         formPanel.add(dayBox);
 
-        // Gender
+        // Add Leap Year/Month Logic AFTER components are initialized to avoid NullPointerException
+        ItemListener dateUpdater = e -> {
+            if (e.getStateChange() == ItemEvent.SELECTED) {
+                try {
+                    int year = Integer.parseInt((String) yearBox.getSelectedItem());
+                    int month = monthBox.getSelectedIndex() + 1;
+                    int daysInMonth = YearMonth.of(year, month).lengthOfMonth();
+                    
+                    dayBox.removeAllItems();
+                    for (int i = 1; i <= daysInMonth; i++) {
+                        dayBox.addItem(String.valueOf(i));
+                    }
+                } catch (Exception ex) {}
+            }
+        };
+        yearBox.addItemListener(dateUpdater);
+        monthBox.addItemListener(dateUpdater);
+        // Trigger initial day population
+        monthBox.setSelectedIndex(0); 
 
+        // Gender & Department
         formPanel.add(new JLabel("Gender:"));
         maleBtn = new JRadioButton("Male");
         femaleBtn = new JRadioButton("Female");
@@ -101,7 +108,6 @@ public class StudentRegistrationForm2 extends JFrame {
         genderPanel.add(femaleBtn);
         formPanel.add(genderPanel);
 
-        // Department
         formPanel.add(new JLabel("Department:"));
         deptBox = new JComboBox<>(new String[]{
             "Civil", "Computer Science and Engineering", "Electrical",
@@ -117,30 +123,20 @@ public class StudentRegistrationForm2 extends JFrame {
 
         // Output Area
         formPanel.add(new JLabel("Your Data is Below:"));
-        outputArea = new JTextArea(100, 100);
+        outputArea = new JTextArea(5, 20);
         outputArea.setEditable(false);
         formPanel.add(new JScrollPane(outputArea));
 
-        // Button Actions
-        submitBtn.addActionListener(new ActionListener() {
-
-            public void actionPerformed(ActionEvent e) {
-                handleSubmit();
-            }
-        });
-
+        submitBtn.addActionListener(e -> handleSubmit());
         cancelBtn.addActionListener(e -> System.exit(0));
 
-        // Show the window
         setVisible(true);
     }
 
-    // Validation and output
     private void handleSubmit() {
         String firstName = firstNameField.getText().trim();
         String lastName = lastNameField.getText().trim();
         String email = emailField.getText().trim();
-
         String confirmEmail = confirmEmailField.getText().trim();
         String password = new String(passwordField.getPassword());
         String confirmPassword = new String(confirmPasswordField.getPassword());
@@ -150,66 +146,73 @@ public class StudentRegistrationForm2 extends JFrame {
         String gender = maleBtn.isSelected() ? "M" : femaleBtn.isSelected() ? "F" : "";
         String department = (String) deptBox.getSelectedItem();
 
-        // Basic validation
-        if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || confirmEmail.isEmpty()
-                || password.isEmpty() || confirmPassword.isEmpty() || gender.isEmpty()) {
+        // 1. Basic Validation
+        if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty() || gender.isEmpty()) {
             JOptionPane.showMessageDialog(this, "All fields are required.");
             return;
         }
 
-        if (!email.equals(confirmEmail)) {
-            JOptionPane.showMessageDialog(this, "Emails do not match.");
+        // 2. Email & Password Match
+        if (!email.equals(confirmEmail) || !password.equals(confirmPassword)) {
+            JOptionPane.showMessageDialog(this, "Email or Password confirmation does not match.");
             return;
         }
 
-        // Password rules
-        if (!password.equals(confirmPassword)) {
-            
-
-        JOptionPane.showMessageDialog(this, "Passwords do not match.");
-            return;
-        }
-        if (password.length() < 8) {
-            JOptionPane.showMessageDialog(this, "Password must be at least 8 characters.");
-            return;
-        }
-        if (!password.matches(".*[A-Za-z].*") || !password.matches(".*\\d.*")) {
-            JOptionPane.showMessageDialog(this, "Password must contain both letters and digits.");
+        // 3. Password Length (8-20 characters as required)
+        if (password.length() < 8 || password.length() > 20) {
+            JOptionPane.showMessageDialog(this, "Password must be between 8 and 20 characters.");
             return;
         }
 
-        // Age validation
-        int birthYear = Integer.parseInt(year);
-
-        int currentYear = java.time.LocalDate.now().getYear();
-        int age = currentYear - birthYear;
+        // 4. Age Validation (16-60 years)
+        int age = java.time.LocalDate.now().getYear() - Integer.parseInt(year);
         if (age < 16 || age > 60) {
             JOptionPane.showMessageDialog(this, "Age must be between 16 and 60 years.");
             return;
         }
 
-        // Auto ID generation
+        // 5. Auto ID Generation (YYYY-xxxxx)
         String studentId = String.format("2026-%05d", idCounter++);
 
-        // Display formatted output
+        // 6. Display Output
         String formatted = String.format("%s | %s %s | %s | %s | %s-%s-%s | %s",
                 studentId, firstName, lastName, gender, department, year, month, day, email);
         outputArea.setText(formatted);
 
+        // 7. Save to CSV
+        saveToCSV(studentId, firstName, lastName, gender, department, year, month, day, email);
 
-        // Save to CSV
+        // 8. Save to MS Access
+        saveToAccess(studentId, firstName, lastName, gender, department, year + "-" + month + "-" + day, email);
+    }
+
+    private void saveToCSV(String id, String fn, String ln, String g, String d, String y, String m, String day, String em) {
         try (java.io.FileWriter writer = new java.io.FileWriter("students.csv", true)) {
-            writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
-                studentId, firstName, lastName, gender, department,
-                year, month, day, email));
+            writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s\n", id, fn, ln, g, d, y, m, day, em));
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error saving data: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "CSV Error: " + ex.getMessage());
         }
     }
 
-    // MAIN METHOD
-    public static void main(String[] args) {
-        new StudentRegistrationForm2(); // Launch the form
+    private void saveToAccess(String id, String fName, String lName, String gen, String dept, String dob, String email) {
+        String dbUrl = "jdbc:ucanaccess://database/students_db.accdb"; 
+        String query = "INSERT INTO Students (StudentID, FirstName, LastName, Gender, Department, DOB, Email) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DriverManager.getConnection(dbUrl);
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, id);
+            pstmt.setString(2, fName);
+            pstmt.setString(3, lName);
+            pstmt.setString(4, gen);
+            pstmt.setString(5, dept);
+            pstmt.setString(6, dob);
+            pstmt.setString(7, email);
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            System.out.println("Database Error: " + e.getMessage());
+        }
     }
 
+    public static void main(String[] args) {
+        new StudentRegistrationForm2(); 
+    }
 }
