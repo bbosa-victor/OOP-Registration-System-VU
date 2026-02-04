@@ -1,4 +1,4 @@
-# Student Registration System - Question 2
+# Student Registration Form- Question 2
 **GroupB Project | Victoria University**
 
 ## Description
